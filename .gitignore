@@ -1,0 +1,7 @@
+node_modules/
+/tokenizers/
+/config.json
+*.tgz
+.env
+.env.*
+test/reload-fixture-*/

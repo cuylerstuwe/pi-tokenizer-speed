@@ -1,0 +1,14 @@
+{
+  "models": {
+    "example-provider/model-a": {
+      "type": "tiktoken",
+      "encoding": "o200k_base",
+      "nameIncludes": "family-a"
+    },
+    "example-provider/model-b": {
+      "type": "tiktoken",
+      "encoding": "o200k_base",
+      "nameIncludes": "family-b"
+    }
+  }
+}

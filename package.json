@@ -1,0 +1,47 @@
+{
+  "name": "pi-tokenizer-speed",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Live model-specific tokenizer throughput and per-request prefill timing for Pi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cuylerstuwe/pi-tokenizer-speed.git"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "files": [
+    "*.ts",
+    "tokenizer-worker.mjs",
+    "config.example.json",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "tokenizers": "0.23.2",
+    "tiktoken": "1.0.22"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}
