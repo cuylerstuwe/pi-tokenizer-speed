@@ -2,15 +2,15 @@
 
 A Pi extension that counts received output with an explicitly configured tokenizer and displays live tokens/second. Multi-token stream chunks are handled correctly: the accumulated text is tokenized, rather than counting emissions.
 
-It also places a prompt-processing (PP) line **after the processed input or tool results and before the corresponding assistant response**. The line updates in place when server timing arrives.
+It also places an input-timing line **after the processed input or tool results and before the corresponding assistant response**. It separates tool execution, model time to first output (TTFT), and server-reported prompt processing (PP). The line updates in place when server timing arrives.
 
 ## Install
 
 ```sh
-pi install git:github.com/cuylerstuwe/pi-tokenizer-speed@v1.1.0
+pi install git:github.com/cuylerstuwe/pi-tokenizer-speed@v1.2.0
 ```
 
-Then run `/reload` or restart Pi. Tested with Pi 0.87.1 and Node 26.7.0 on Linux x64. Node 22.19+ is required. The `tokenizers` dependency contains native code; installation must succeed on the destination container's platform. Pi supplies its own SDK and TUI dependencies.
+Then run `/reload` or restart Pi. Version 1.2.0 passed all 37 tests, including the real Pi loader/reload integration, with Pi 0.87.1 and Node 26.8.1 on Linux x64 and Pi 1.1.0 and Node 24.18.0 on macOS arm64. Node 22.19+ is required. The `tokenizers` dependency contains native code; installation must succeed on the destination container's platform. Pi supplies its own SDK and TUI dependencies.
 
 The package has no built-in model mappings, server addresses, credentials, or model downloads. It is distributed through Git; `private: true` in package.json prevents accidental npm publication and does not describe this repository's visibility.
 
@@ -52,7 +52,7 @@ For public publisher files, the repository includes an **explicit setup helper**
 ```sh
 git clone https://github.com/cuylerstuwe/pi-tokenizer-speed.git
 cd pi-tokenizer-speed
-git checkout v1.1.0
+git checkout v1.2.0
 node scripts/download-tokenizers.mjs /absolute/path/to/tokenizer-speed.json example-provider/model-a
 ```
 
@@ -62,22 +62,31 @@ Omit the model key to process all Hugging Face entries. The helper requires an i
 
 - **Decode tok/s:** local tokenization of received text, exposed thinking, tool names and argument JSON. Counts each accumulated content block in full so changing token boundaries and multi-token chunks do not create an emission-count estimate. Hidden tokens, control tokens, and server chat templates are not reconstructed; the server's final output total is shown separately.
 - **Timing:** a rolling window while streaming and an average at completion. The first received batch is included in token totals but excluded from the rate numerator, since its individual token arrival times are unknown. A single batch has no measurable decode rate. Network buffering can affect the measured arrival rate.
-- **PP server:** prefers provider `timings.prompt_n`, `prompt_ms`, `prompt_per_second`, or supported usage timing fields. The provider defines the timing scope. Some servers report it only at completion; the existing PP line then updates in its original position.
-- **PP TTFT estimate:** when native timing is absent, divides input tokens by time to first received output. This includes queueing, network time and initial generation, so it is explicitly approximate. Known cache reads are subtracted; unknown cache status is labeled. If server input usage is unavailable, exposed prompt text and tool schemas are tokenized locally; templates, images and hidden context are excluded and the line says `prompt-text tok`.
-- **Placement:** one PP line per provider request. If several tool results are consumed together, one line follows that group. It measures the request's prompt, not just the last visible message, and is separate from the tool's execution duration. Input that never causes an inference request has no PP measurement.
+- **Tools:** wall time from tool execution start/end events. Parallel and nested tools count elapsed time once; gaps between tools are excluded. Completed tool batches are attached to the following model request. Failed tools still count.
+- **Model TTFT:** provider request to first text, thinking, or tool-call output. Tool execution and the gap before the request are excluded. It still includes upload, queueing, cache restoration, prefill, and initial generation; the client cannot isolate GPU computation.
+- **PP server:** uses provider `timings.prompt_n`, `prompt_ms`, `prompt_per_second`, or supported usage timing fields. Recognized scopes are labeled `server phase`, `server wall`, `server active`, or `server compute`; their backend-defined boundaries can differ. MTPLX's explicit compute counters and newly processed suffix count take precedence over generic full-prompt rates. Invalid, zero-work, or incomplete MTPLX compute measurements do not fall back to an inflated rate. Some servers report timing only at completion; the existing line then updates in its original position.
+- **Missing PP timing:** says `PP unavailable · no server timing`. Version 1.2.0 removes the old prompt-tokens/TTFT estimate: queueing, cached history, and fixed overhead made it misleading. Token counts remain visible with an explicit cache-known/unknown label. If server input usage is unavailable, exposed prompt text and tool schemas are tokenized locally; templates, images, and hidden context are excluded. A prompt duration alone needs a known uncached count before it can produce a rate.
+- **Placement:** one line per provider request. If several tool results are consumed together, one line follows that group. It describes the whole request and preceding tool batch. Input that never causes an inference request has no measurement.
+
+For example:
+
+```text
+Tools 0.20s wall · Model TTFT 0.82s · PP 1,200 tok/s · server · 60 processed tok · 0.05s prefill
+Tools 0.20s wall · Model TTFT 2.42s · PP unavailable · no server timing · 225 uncached tok
+```
 
 Custom entries persist numeric timing/count data and model/provider identifiers in the local Pi session. They add no messages to the model's context. The extension does not log prompts, send telemetry, or make network calls at runtime; the explicit download helper contacts Hugging Face. Prompt/output text is held temporarily in process memory for tokenization.
 
-PP requires Pi's `before_provider_request`, streaming events and custom-entry rendering APIs. Missing custom-entry methods disable PP while preserving the output meter. Full behavior is tested on Pi 0.87.1; this is not a claim of compatibility with every older release. No picker customization or particular provider configuration is required.
+Input timing requires Pi's `before_provider_request`, streaming events, tool execution events, and custom-entry rendering APIs. Missing custom-entry methods disable input lines while preserving the output meter. No picker customization or particular provider configuration is required.
 
 ## Development and verification
 
 ```sh
-npm ci
+npm ci --ignore-scripts
 npm test
 ```
 
-Default tests use a tiny synthetic tokenizer and tiktoken without network access. Tests cover chunk partitioning, Unicode, tool arguments, PP placement and persistence, unsupported models, missing configuration, config paths, checksum failures, stale async results, and explicit downloads.
+Default tests use a tiny synthetic tokenizer and tiktoken without network access. Tests cover chunk partitioning, Unicode, tool arguments, input-line placement and persistence, tool wall-time unions, separate TTFT, late/cache-aware server timing, unavailable PP, unsupported models, missing configuration, config paths, checksum failures, stale async results, and explicit downloads.
 
 Optional integrations:
 

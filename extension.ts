@@ -198,7 +198,7 @@ export default function install(pi, options = {}) {
         configError ?? `Config: ${options.configPath ?? configPath}`,
         'Counts received text, thinking, and tool arguments with local tokenizers. No chunk or character estimates.',
         'Rates exclude the first received batch; final provider totals may include hidden/control tokens.',
-        supportsPrefill ? 'PP appears below processed inputs, before the response. Server timing is preferred; TTFT estimates are labeled.'
+        supportsPrefill ? 'Input timing appears below each processed input: tool wall time, then model TTFT. PP tok/s requires server prefill timing.'
           : 'PP unavailable: this Pi version lacks custom entry renderers. Tested with Pi 0.87.1.',
       ].join('\n'), current?.error || selected.error || configError ? 'warning' : 'info');
     },

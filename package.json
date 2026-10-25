@@ -1,6 +1,6 @@
 {
   "name": "pi-tokenizer-speed",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Live model-specific tokenizer throughput and per-request prefill timing for Pi",
